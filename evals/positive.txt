@@ -1,0 +1,5 @@
+Process batch payroll for NY marketing team. Apply a 15% performance bonus to EMP042, ensure 401k deductions are maxed for EMP019, and prorate EMP007's salary as they joined mid-cycle.
+Run payroll for the hourly operations staff EMP003 and EMP004. Verify that California daily overtime for EMP004 pays the 13-hour shift hours beyond 12 at double time, and that Texas weekly overtime for EMP003 pays 1.5x beyond 40 hours.
+Process payroll for EMP060 with a $25,000 retention bonus and route the run for human review if the period-over-period variance exceeds the approval threshold.
+Run biweekly payroll for EMP023 and EMP071 and enforce garnishment limits: apply the child support order for EMP023 and the creditor garnishment for EMP071 within the legal caps.
+Process payroll for executive EMP001 including a 20% bonus, and confirm the Social Security wage base cap and the additional Medicare tax are applied correctly with the supplemental wage split at 1 million.

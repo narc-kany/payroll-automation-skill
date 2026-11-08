@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="x-apple-disable-message-reformatting">
+  <title>Payslip {{ pay_date }} – {{ company_name }}</title>
+  {#- Rendered by scripts/tools.py (Jinja2, autoescape ON, StrictUndefined).
+      Every value is already PII-masked: never pass raw SSNs or bank account numbers here. -#}
+  <style>
+    body { margin: 0; padding: 0; background: #F2F4F8; font-family: -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; color: #1B2230; }
+    table { border-collapse: collapse; }
+    .wrap { width: 100%; background: #F2F4F8; padding: 24px 12px; }
+    .card { width: 100%; max-width: 640px; margin: 0 auto; background: #FFFFFF; border-radius: 10px; overflow: hidden; border: 1px solid #DDE2EA; }
+    .brand { background: {{ brand_color }}; padding: 20px 28px; }
+    .brand img { height: 32px; vertical-align: middle; }
+    .brand span { color: #FFFFFF; font-size: 18px; font-weight: 600; margin-left: 12px; vertical-align: middle; }
+    .pad { padding: 24px 28px; }
+    h1 { margin: 0 0 4px; font-size: 20px; }
+    .muted { color: #5B6578; font-size: 13px; }
+    .meta td { padding: 4px 0; font-size: 14px; }
+    .meta td.k { color: #5B6578; width: 42%; }
+    .mono { font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace; letter-spacing: 0.4px; }
+    .section { margin-top: 24px; }
+    .section h2 { margin: 0 0 8px; padding-bottom: 6px; font-size: 13px; text-transform: uppercase; letter-spacing: 0.8px; color: {{ brand_color }}; border-bottom: 2px solid {{ brand_color }}; }
+    .lines { width: 100%; }
+    .lines td, .lines th { padding: 7px 0; font-size: 14px; border-bottom: 1px solid #EEF1F6; text-align: left; }
+    .lines th { font-size: 12px; color: #5B6578; font-weight: 600; }
+    .lines .num { text-align: right; white-space: nowrap; }
+    .total td { font-weight: 700; border-bottom: none; padding-top: 10px; }
+    .net { margin-top: 24px; background: #F2F6FF; border: 1px solid #CFDCFF; border-radius: 8px; padding: 16px 20px; }
+    .net .amt { font-size: 28px; font-weight: 700; color: {{ brand_color }}; }
+    .foot { background: #F7F8FB; padding: 18px 28px; font-size: 12px; color: #5B6578; line-height: 1.5; }
+    @media only screen and (max-width: 480px) {
+      .pad { padding: 18px 16px !important; }
+      .brand { padding: 16px !important; }
+      .hide-sm { display: none !important; }
+      .net .amt { font-size: 24px !important; }
+    }
+    @media (prefers-color-scheme: dark) {
+      body, .wrap { background: #12151C !important; color: #E8ECF3 !important; }
+      .card { background: #1B2030 !important; border-color: #2B3246 !important; }
+      .lines td, .lines th { border-color: #2B3246 !important; }
+      .net { background: #1F2740 !important; border-color: #33406A !important; }
+      .foot { background: #171B27 !important; }
+    }
+  </style>
+</head>
+<body>
+  <div style="display:none;max-height:0;overflow:hidden;opacity:0;">
+    Your payslip for {{ pay_period_start }} to {{ pay_period_end }} is ready. Net pay {{ net_pay|money }}.
+  </div>
+  <table role="presentation" class="wrap" width="100%"><tr><td align="center">
+    <table role="presentation" class="card" width="100%">
+
+      <!-- Corporate branding placeholders: set COMPANY_NAME / COMPANY_LOGO_URL / COMPANY_BRAND_COLOR -->
+      <tr><td class="brand">
+        <img src="{{ logo_url }}" alt="{{ company_name }} logo" height="32">
+        <span>{{ company_name }}</span>
+      </td></tr>
+
+      <tr><td class="pad">
+        <h1>Secure payslip</h1>
+        <div class="muted">Pay date {{ pay_date }} · Period {{ pay_period_start }} – {{ pay_period_end }}</div>
+
+        <table role="presentation" class="meta" width="100%" style="margin-top:16px;">
+          <tr><td class="k">Employee</td><td>{{ employee_name }} ({{ employee_id }})</td></tr>
+          <tr><td class="k">Department</td><td>{{ department }}</td></tr>
+          <tr><td class="k">SSN</td><td class="mono">{{ masked_ssn }}</td></tr>
+          <tr><td class="k">Direct deposit account</td><td class="mono">{{ masked_account }}</td></tr>
+        </table>
+
+        <!-- Earnings -->
+        <div class="section">
+          <h2>Earnings</h2>
+          <table role="presentation" class="lines" width="100%">
+            <tr><th>Description</th><th class="num hide-sm">Hours</th><th class="num hide-sm">Rate</th><th class="num">Amount</th></tr>
+            {% for e in earnings %}
+            <tr>
+              <td>{{ e.description }}</td>
+              <td class="num hide-sm">{% if e.hours is not none %}{{ e.hours }}{% else %}–{% endif %}</td>
+              <td class="num hide-sm">{% if e.rate is not none %}{{ e.rate|money }}{% else %}–{% endif %}</td>
+              <td class="num">{{ e.amount|money }}</td>
+            </tr>
+            {% endfor %}
+            <tr class="total"><td colspan="3">Gross pay</td><td class="num">{{ gross_pay|money }}</td></tr>
+          </table>
+        </div>
+
+        <!-- Itemised deduction injection blocks -->
+        <div class="section">
+          <h2>Pre-tax deductions</h2>
+          <table role="presentation" class="lines" width="100%">
+            {% for d in pretax_deductions %}
+            <tr><td>{{ d.description }}</td><td class="num">–{{ d.amount|money }}</td></tr>
+            {% endfor %}
+            <tr class="total"><td>Total pre-tax</td><td class="num">–{{ total_pretax|money }}</td></tr>
+          </table>
+        </div>
+
+        <div class="section">
+          <h2>Taxes withheld</h2>
+          <table role="presentation" class="lines" width="100%">
+            {% for t in taxes %}
+            <tr><td>{{ t.description }}</td><td class="num">–{{ t.amount|money }}</td></tr>
+            {% endfor %}
+            <tr class="total"><td>Total taxes</td><td class="num">–{{ total_taxes|money }}</td></tr>
+          </table>
+        </div>
+
+        {% if posttax_deductions %}
+        <div class="section">
+          <h2>Post-tax deductions</h2>
+          <table role="presentation" class="lines" width="100%">
+            {% for d in posttax_deductions %}
+            <tr><td>{{ d.description }}</td><td class="num">–{{ d.amount|money }}</td></tr>
+            {% endfor %}
+            <tr class="total"><td>Total post-tax</td><td class="num">–{{ total_posttax|money }}</td></tr>
+          </table>
+        </div>
+        {% endif %}
+
+        <div class="net">
+          <div class="muted">Net pay</div>
+          <div class="amt">{{ net_pay|money }}</div>
+          <div class="muted" style="margin-top:6px;">
+            Year to date: gross {{ ytd.gross|money }} · 401(k) {{ ytd.k401|money }}
+          </div>
+        </div>
+
+        <p class="muted" style="margin-top:20px;">
+          Questions about this payslip? Contact
+          <a href="mailto:{{ support_email }}" style="color:{{ brand_color }};">{{ support_email }}</a>
+          and quote reference <span class="mono">{{ request_id }}</span>.
+        </p>
+      </td></tr>
+
+      <tr><td class="foot">
+        <strong>Confidential.</strong> This message contains personal compensation data intended only for
+        {{ employee_name }}. Identifiers are masked; the attached PDF is encrypted. If you received this in
+        error, delete it and notify {{ support_email }}. Calculation basis: compliance manual sections
+        {{ compliance_refs|join(", ") }} (FY2026 mock rules – not tax advice).
+      </td></tr>
+    </table>
+  </td></tr></table>
+</body>
+</html>

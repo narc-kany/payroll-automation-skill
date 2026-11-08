@@ -1,0 +1,8 @@
+langgraph>=1.0.5
+langgraph-checkpoint>=3.0.1
+langchain-core>=1.6.2
+mcp>=1.12.3
+pydantic>=2.11
+jinja2>=3.1
+structlog>=24.1
+litellm>=1.72
