@@ -161,8 +161,12 @@ _GUARD_RULES: tuple[tuple[str, str, re.Pattern[str]], ...] = tuple(
         ("PII_EXFILTRATION", "Bulk disclosure of PII is prohibited (§9.7)",
          r"\b(show|list|print|dump|reveal|give|display|send|export)\b.{0,40}"
          r"\b(full\s+)?(ssns?|social\s+security|bank\s+account|routing\s+numbers?|account\s+numbers?)\b"),
-        ("DATA_EXFILTRATION", "Sending compensation data outside payslip delivery is prohibited",
-         r"\b(e-?mail|send|forward|share|post|upload)\b.{0,60}\b(compensation|salary|package|payroll\s+data)\b"),
+        ("DATA_EXFILTRATION", "Sending or encoding compensation/PII data for export is prohibited",
+         r"\b(e-?mail|send|forward|share|post|upload)\b.{0,60}\b(compensation|salary|package|payroll\s+data)\b"
+         r"|\b(base-?64|hex|rot-?13|url-?encode|encode|obfuscate|encrypt|exfiltrate)\w*\b.{0,60}"
+         r"\b(ssns?|social\s+security|routing|account\s+numbers?|bank|compensation|salar(?:y|ies)|"
+         r"payroll\s+data|pii)\b"
+         r"|\b(append|attach|forward|copy)\b.{0,40}\bto\b.{0,40}@"),
     )
 )
 
@@ -188,7 +192,8 @@ def screen_text(text: str) -> list[dict[str, str]]:
 
 async def guardrail_node(state: PayrollState) -> dict[str, Any]:
     """Reject adversarial or out-of-scope requests before any parsing or LLM use."""
-    texts = [state.get("query", "")]
+    texts = [state.get("query", ""), state.get("department") or ""]
+    texts += [str(e) for e in state.get("emp_ids", [])]
     texts += [a.get("reason", "") for a in state.get("adjustments", [])]
     violations = [v for t in texts if t for v in screen_text(t)]
     role = state.get("requester_role", "")
@@ -450,7 +455,7 @@ async def human_review_node(state: PayrollState) -> dict[str, Any]:
         return {"status": "review_rejected", "review": {"approved": False, "error": "invalid decision"},
                 "error_stack": [_error("human_review", exc, "INVALID_REVIEW_DECISION")],
                 "audit_trail": [_audit("human_review", "invalid_decision")]}
-    if decision.reviewer == state["requester_id"]:
+    if _same_identity(decision.reviewer, state["requester_id"]):
         decision = decision.model_copy(update={"approved": False, "note": "self-approval blocked (§9.3)"})
     status = "review_approved" if decision.approved else "review_rejected"
     return {"status": status, "review": decision.model_dump(),
@@ -664,6 +669,12 @@ async def run_payroll(
     return await get_run_snapshot(thread, g)
 
 
+def _same_identity(a: Optional[str], b: Optional[str]) -> bool:
+    """Compare principals ignoring case and surrounding whitespace (blocks ``ALICE`` vs ``alice``)."""
+    left, right = (a or "").strip().casefold(), (b or "").strip().casefold()
+    return bool(left) and left == right
+
+
 async def resume_review(thread_id: str, *, approved: bool, reviewer: str, note: str = "",
                         graph: Optional[Any] = None) -> dict[str, Any]:
     """Resume a run paused at ``human_review`` with a reviewer decision."""
@@ -674,7 +685,7 @@ async def resume_review(thread_id: str, *, approved: bool, reviewer: str, note: 
         raise PayrollError(f"unknown thread_id '{thread_id}'")
     if not snap.next:
         raise PolicyViolationError(f"thread '{thread_id}' is not awaiting review")
-    if reviewer == snap.values.get("requester_id"):
+    if _same_identity(reviewer, snap.values.get("requester_id")):
         raise PolicyViolationError("reviewer must differ from the requester (four-eyes, §9.3)")
     await g.ainvoke(Command(resume={"approved": approved, "reviewer": reviewer, "note": note}), config)
     return await get_run_snapshot(thread_id, g)
