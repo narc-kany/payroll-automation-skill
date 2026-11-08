@@ -46,7 +46,7 @@ from mcp import types
 from mcp.server.fastmcp import FastMCP
 from mcp.shared.exceptions import McpError
 from mcp.types import INTERNAL_ERROR, INVALID_PARAMS, ErrorData
-from pydantic import BaseModel, ConfigDict, Field, ValidationError
+from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator
 
 import orchestrator
 from tools import (
@@ -126,6 +126,15 @@ class BatchScope(BaseModel):
     emp_ids: list[str] = Field(default_factory=list, max_length=500)
     department: Optional[str] = Field(default=None, max_length=64)
     state: Optional[str] = Field(default=None, pattern=r"^(CA|TX|NY)$")
+
+    @field_validator("emp_ids")
+    @classmethod
+    def _ids_shape(cls, value: list[str]) -> list[str]:
+        """Reject anything that is not a strict ``EMP###`` token (blocks SQL/command payloads)."""
+        cleaned = [v.strip().upper() for v in value]
+        if any(not re.fullmatch(r"EMP\d{3,6}", v) for v in cleaned):
+            raise ValueError("emp_ids must match ^EMP[0-9]{3,6}$")
+        return cleaned
 
 
 class RunOptions(BaseModel):
